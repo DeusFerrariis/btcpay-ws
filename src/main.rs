@@ -6,6 +6,7 @@ use tide_websockets::{ Message, WebSocket };
 mod args;
 mod btcpay;
 mod state;
+mod websocket;
 
 #[async_std::main]
 async fn main() -> tide::Result<()> {
@@ -25,7 +26,7 @@ async fn main() -> tide::Result<()> {
     app.at("/btcpay").post(btcpay::handle_btcpay);
     app
         .at("/ws")
-        .with(WebSocket::new(btcpay::websocket)) 
+        .with(WebSocket::new(websocket::websocket)) 
         .get(|_| async move { Ok("not a websocket request") });
 
     log::info!("Listening on {}:5000", host);
