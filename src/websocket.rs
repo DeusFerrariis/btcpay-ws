@@ -75,15 +75,7 @@ pub async fn websocket(
     };
 
     loop {
-        log::trace!("Wooooo");
         task::sleep(Duration::from_secs(1)).await;
-
-        match stream.send_string("pong".to_string()).await {
-            Ok(_) => {},
-            Err(_) => {
-                break;
-            }
-        };
 
         match connection.get::<String, String>(query.invoice_id.clone()) {
             Ok(status) => {
