@@ -26,21 +26,9 @@ impl State {
         let mut mac = HmacSha25::new_varkey(self.hmac.as_bytes()).expect("HMAC key error");
         mac.update(message.as_bytes());
 
-        let decoded_message: Vec<u8> = match hex::decode(signature) {
-            Ok(msg) => msg,
-            Err(e) => {
-                log::warn!("{}", e);
-                return false;
-            }
-        };
-
-        match mac.verify(&decoded_message[..]) {
-            Ok(()) => true,
-            Err(e) => {
-                log::warn!("{}", e);
-                false
-            }
-        }
+        log::trace!("{}", hex::encode(&mac.finalize().into_bytes()));
+        signature.to_owned() == hex::encode(&mac.finalize().into_bytes());
+        false
     }
 }
 

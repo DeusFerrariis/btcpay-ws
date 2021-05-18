@@ -1,9 +1,9 @@
 #[macro_use]
 pub mod macros {
-    pub use utils;
     use colored::Colorize;
-    use std::fmt;
     use std::env;
+    use std::fmt;
+    pub use utils;
 
     #[derive(PartialEq)]
     pub enum LogLevel {
@@ -11,7 +11,7 @@ pub mod macros {
         Debug,
         Info,
         Warn,
-        Error
+        Error,
     }
 
     impl LogLevel {
@@ -19,9 +19,17 @@ pub mod macros {
             match self {
                 LogLevel::Error => other == &LogLevel::Error,
                 LogLevel::Warn => vec![LogLevel::Error, LogLevel::Warn].contains(other),
-                LogLevel::Info => vec![LogLevel::Error, LogLevel::Warn, LogLevel::Info].contains(other),
-                LogLevel::Debug => vec![LogLevel::Error, LogLevel::Warn, LogLevel::Info, LogLevel::Debug].contains(other),
-                LogLevel::Trace => true
+                LogLevel::Info => {
+                    vec![LogLevel::Error, LogLevel::Warn, LogLevel::Info].contains(other)
+                }
+                LogLevel::Debug => vec![
+                    LogLevel::Error,
+                    LogLevel::Warn,
+                    LogLevel::Info,
+                    LogLevel::Debug,
+                ]
+                .contains(other),
+                LogLevel::Trace => true,
             }
         }
     }
@@ -45,9 +53,9 @@ pub mod macros {
                 "debug" => LogLevel::Debug,
                 "info" => LogLevel::Info,
                 "warn" => LogLevel::Warn,
-                _ => LogLevel::Error
+                _ => LogLevel::Error,
             },
-            Err(_) => LogLevel::Error
+            Err(_) => LogLevel::Error,
         }
     }
 
