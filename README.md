@@ -24,6 +24,7 @@ OPTIONS:
 # Installing
 
 `git clone https://github.com/DeusFerrariis/btcpay-ws.git && cd btcpay-ws`
+
 `cargo install --path .`
 
 Make sure to add your cargo folder to path if you havent already e.g. `$HOME/.cargo/bin`

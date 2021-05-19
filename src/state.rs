@@ -1,6 +1,6 @@
 use hmac::{Hmac, Mac, NewMac};
-use std::str;
 use sha2::Sha256;
+use std::str;
 
 pub type HmacSha25 = Hmac<Sha256>;
 
@@ -56,7 +56,6 @@ mod tests {
         mac.update(b"oof");
         let result = mac.finalize();
         let bytes = result.into_bytes();
-
 
         assert!(state.verify_hmac("oof".to_string(), &bytes));
         assert!(!state.verify_hmac("of".to_string(), &bytes));
