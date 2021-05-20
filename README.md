@@ -28,3 +28,5 @@ OPTIONS:
 `cargo install --path .`
 
 Make sure to add your cargo folder to path if you havent already e.g. `$HOME/.cargo/bin`
+
+Work tree test
