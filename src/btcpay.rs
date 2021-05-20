@@ -4,12 +4,14 @@ use serde::Deserialize;
 use std::{error::Error, fmt};
 use tide::convert::json;
 extern crate log;
-use super::state::State;
+use super::db::InvoiceCommands;
 
 #[derive(Debug, Deserialize)]
 struct InvoiceUpdate {
-    r#type: String,
-    invoiceId: String,
+    #[serde(rename="type")]
+    status: String,
+    #[serde(rename="invoiceId")]
+    invoice_id: String,
 }
 
 #[derive(Debug)]
@@ -27,21 +29,18 @@ impl fmt::Display for RedisError {
 
 impl InvoiceUpdate {
     fn sync_update(&self, mut connection: redis::Connection) -> Result<(), RedisError> {
-        match connection.set::<String, String, String>(self.invoiceId.clone(), self.r#type.clone())
-        {
+        match connection.set::<String, String, String>(self.invoice_id.clone(), self.status.clone()) {
             Ok(..) => Ok(()),
             Err(..) => Err(RedisError::Connection),
         }
     }
 }
 
-pub async fn handle_btcpay(mut req: tide::Request<State>) -> tide::Result<tide::Response> {
+pub async fn handle_btcpay<T: InvoiceCommands>(mut req: tide::Request<T>) -> tide::Result<tide::Response> {
     log::trace!("{}", "Handling invoice update");
-    let state: State = req.state().clone();
+    let state = req.state().clone();
 
-    let body = Box::new(req.take_body());
-
-    let body_str: String = match body.into_string().await {
+    let body_str: String = match req.body_string().await {
         Ok(body) => body.clone(),
         Err(..) => {
             log::trace!("request missing body");
@@ -51,12 +50,10 @@ pub async fn handle_btcpay(mut req: tide::Request<State>) -> tide::Result<tide::
         }
     };
 
-    log::debug!("{}", &body_str);
-
+    // Get invoice update
     let update: InvoiceUpdate = match serde_json::from_str::<InvoiceUpdate>(&body_str) {
         Ok(update) => update,
         Err(e) => {
-            log::debug!("{}", e);
             log::trace!("request contains invalid/bad body");
             return Ok(tide::Response::builder(400)
                 .body(json!({"message": "invalid body"}))
@@ -64,78 +61,42 @@ pub async fn handle_btcpay(mut req: tide::Request<State>) -> tide::Result<tide::
         }
     };
 
-    match req.header("BTCPAY-SIG") {
-        Some(signature) => {
-            match signature.get(0) {
-                Some(sig) => {
-                    let sig_string: String = sig.to_string();
-                    let parts: Vec<&str> = sig_string.split('=').collect();
-
-                    if parts.len() != 2 {
-                        return Ok(tide::Response::builder(401)
-                            .body(json!({"detail": "invalid BTCPAY-SIG"}))
-                            .build());
-                    }
-
-                    if parts[0] != "sha256" {
-                        return Ok(tide::Response::builder(401)
-                            .body(json!({"detail": "invalid hmac operation"}))
-                            .build());
-                    }
-
-                    log::debug!("e: {}", parts[1]);
-                    log::debug!("e: {}", body_str);
-
-                    if !state.verify_hmac(body_str, parts[1].as_bytes()) {
-                        return Ok(tide::Response::builder(401)
-                            .body(json!({"detail": "invalid hmac"}))
-                            .build());
-                    }
-                },
-
-                None => {
-                    log::trace!("bad request on handle_btcpay, missing hmac header");
-                    return Ok(tide::Response::builder(401)
-                        .body(json!({"detail": "failed to get hmac header"}))
-                        .build());
-                }
-            }
-            log::trace!("verifying hmac from sig '{}'", &signature);
-        }
-
-        None => {
-            log::trace!("bad request on handle_btcpay, missing hmac header");
-            return Ok(tide::Response::builder(401)
-                .body(json!({"detail": "failed to get hmac header"}))
-                .build());
-        }
+    // Fetch btcpay sig
+    let btcpay_sig = match req.header() {
+        Ok(sig) => sig,
+        Err(e) => return Ok(tide::Response::builder(400)
+            .body(json!({"detail": "missing BTCPAY-SIG header"}))
+            .build())
     };
 
-    match state.new_connection() {
-        Ok(client) => {
-            match client.get_connection() {
-                Ok(connection) => {
-                    match update.sync_update(connection) {
-                        Ok(_) => {},
-                        Err(e) => {
-                            log::error!("Error syncing update '{:?}''", e);
-                            return Ok(tide::Response::builder(500).build());
-                        }
-                    }
-                },
-                Err(e) => {
-                    log::error!("Error connecting to redis '{:?}'", e);
-                    return Ok(tide::Response::builder(500).build());
-                }
-            }
-        },
-        Err(e) => {
-            log::error!("Error connecting to redis '{:?}'", e);
-            return Ok(tide::Response::builder(500).build());
-        }
+    // Verify signature
+    let sig_string = btcpay_sig.to_string();
+    let sig_parts: Vec<&str> = sig_string.split('=').collect();  // Expects sha256=somekey
+
+    // Assert format of signature header is something=something
+    if sig_parts.len() != 2 {
+        return Ok(tide::Response::builder(401)
+            .body(json!({"detail": "invalid BTCPAY-SIG"}))
+            .build());
     }
 
-    Ok(tide::Response::builder(200)
-        .body(json!({"message": "nice"}))
-        .build())
+    // Assert hash func is supported
+    if sig_parts[0] != "sha256" {
+        return Ok(tide::Response::builder(401)
+            .body(json!({"detail": "invalid hmac operation"}))
+            .build());
+    }
+
+    if !state.verify_hmac(body_str, sig_parts[1].as_bytes()) {
+        return Ok(tide::Response::builder(401)
+            .body(json!({"detail": "invalid hmac"}))
+            .build());
+    }
+
+    match state.set_invoice_status(update.invoice_id.clone(), update.status.clone()) {
+        Err(e) => Ok(tide::Response::builder(500).build()),
+        _ => Ok(tide::Response::builder(200)
+            .body(json!({"message": "update synced"}))
+            .build()),
+    }
 }

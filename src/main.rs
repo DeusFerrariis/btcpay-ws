@@ -1,12 +1,11 @@
 #![feature(macro_rules)]
 use redis::Commands;
-use std::env;
-use tide_websockets::{ Message, WebSocket };
+use tide_websockets::WebSocket;
 
 mod args;
 mod btcpay;
-mod state;
 mod websocket;
+mod db;
 
 #[async_std::main]
 async fn main() -> tide::Result<()> {
@@ -21,11 +20,14 @@ async fn main() -> tide::Result<()> {
     let port = matches.value_of("redis-port").unwrap_or("6379");
     let pass = matches.value_of("redis-password").unwrap_or("");
 
-    let state = state::State::new(pass.to_owned(), host.to_owned(), hmac.to_owned());
-    let mut app = tide::with_state(state);
+    let mut app = tide::with_state(db::RedisDb::new(
+        host.to_string(),
+        port.to_string(),
+        pass.to_string(),
+    ));
+
     app.at("/btcpay").post(btcpay::handle_btcpay);
-    app
-        .at("/ws")
+    app.at("/ws")
         .with(WebSocket::new(websocket::websocket)) 
         .get(|_| async move { Ok("not a websocket request") });
 
