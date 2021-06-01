@@ -1,29 +1,6 @@
-use std::{ error::Error, fmt };
+use super::invoice::{ InvoiceCommands, InvoiceError };
+use async_trait::async_trait;
 use redis::Commands;
-
-#[derive(Debug)]
-enum InvoiceError {
-    Connection,
-    Authentication,
-    DoesNotExist,
-}
-
-impl Error for InvoiceError {}
-
-impl fmt::Display for InvoiceError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            InvoiceError::Connection => write!(f, "There was an error connecting"),
-            InvoiceError::Authentication => write!(f, "There was an error authenticating"),
-            InvoiceError::DoesNotExist => write!(f, "The specified invoice does not exist"),
-        }
-    }
-}
-
-pub trait InvoiceCommands {
-    fn get_invoice_status(&self, invoice_id: String) -> Result<String, InvoiceError>;
-    fn set_invoice_status(&self, invoice_id: String, status: String) -> Result<(), InvoiceError>;
-}
 
 #[derive(Clone)]
 pub struct RedisDb {
@@ -52,28 +29,29 @@ impl RedisDb {
     }
 }
 
+#[async_trait]
 impl InvoiceCommands for RedisDb {
-    fn get_invoice_status(&self, invoice_id: String) -> Result<String, InvoiceError> {
+    async fn get_invoice_status(&self, invoice_id: String) -> Result<String, InvoiceError> {
         match self.get_connection() {
-            Ok(connection) => {
+            Ok(mut connection) => {
                 match connection.get::<String, String>(invoice_id) {
                     Ok(invoice_status) => Ok(invoice_status),
                     Err(_) => Err(InvoiceError::DoesNotExist),
                 }
             }
-            Err(e) => Err(InvoiceError::Connection),
+            Err(e) => Err(InvoiceError::DbAuthentication),
         }
     }
 
-    fn set_invoice_status(&self, invoice_id: String, status: String) -> Result<(), InvoiceError> {
+    async fn set_invoice_status(&mut self, invoice_id: String, status: String) -> Result<(), InvoiceError> {
         match self.get_connection() {
-            Ok(connection) => {
+            Ok(mut connection) => {
                 match connection.set::<String, String, String>(invoice_id, status) {
                     Ok(invoice_status) => Ok(()),
                     Err(_) => Err(InvoiceError::DoesNotExist),
                 }
             }
-            Err(e) => Err(InvoiceError::Connection),
+            Err(e) => Err(InvoiceError::DbConnection),
         }
     }
 }
