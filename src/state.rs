@@ -1,12 +1,12 @@
 use super::invoice::InvoiceCommands;
-use hmac::{ Hmac, Mac, NewMac };
-use async_std::sync::{ Arc, Mutex };
+use async_std::sync::{Arc, Mutex};
+use hmac::{Hmac, Mac, NewMac};
 use sha2::Sha256;
 
 #[derive(Clone)]
-pub struct State <T: InvoiceCommands + std::clone::Clone> {
+pub struct State<T: InvoiceCommands + std::clone::Clone> {
     pub db: Arc<Mutex<T>>,
-    pub hmac: String
+    pub hmac: String,
 }
 
 impl<T: InvoiceCommands + std::clone::Clone> State<T> {

@@ -1,6 +1,6 @@
-# THIS PROJECT IS NOT COMPLETE
+# btcpay-ws
 
-While the project is publicly visible I have not finished porting over code from a personalized use case.
+btcpay-ws servers as a websocket interface for payment statuses. btcpay-ws is intended for usage with a redis server.
 
 ```
 BTCPay WebSocket Service 0.0.1

@@ -1,18 +1,16 @@
-#![feature(macro_rules)]
+use async_std::sync::{Arc, Mutex};
 use tide_websockets::WebSocket;
-use async_std::sync::{ Arc, Mutex };
 
 mod args;
-mod invoice;
 mod btcpay;
-mod websocket;
 mod database;
+mod invoice;
 mod state;
+mod websocket;
 
 #[async_std::main]
 async fn main() -> tide::Result<()> {
     let matches = args::get_args().get_matches();
-
     let hmac = matches
         .value_of("btcpay-hmac")
         .expect("Missing argument hmac");
@@ -35,7 +33,7 @@ async fn main() -> tide::Result<()> {
 
     app.at("/btcpay").post(btcpay::handle_btcpay);
     app.at("/ws")
-        .with(WebSocket::new(websocket::websocket)) 
+        .with(WebSocket::new(websocket::websocket))
         .get(|_| async move { Ok("not a websocket request") });
 
     log::info!("Listening on {}:5000", host);

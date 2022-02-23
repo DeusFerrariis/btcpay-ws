@@ -1,5 +1,5 @@
-use std::{ error::Error, fmt, future::Future};
 use async_trait::async_trait;
+use std::{error::Error, fmt, future::Future};
 
 #[derive(Debug)]
 pub enum InvoiceError {
@@ -52,5 +52,9 @@ impl InvoiceStatus {
 #[async_trait]
 pub trait InvoiceCommands {
     async fn get_invoice_status(&self, invoice_id: String) -> Result<String, InvoiceError>;
-    async fn set_invoice_status(&mut self, invoice_id: String, status: String) -> Result<(), InvoiceError>;
+    async fn set_invoice_status(
+        &mut self,
+        invoice_id: String,
+        status: String,
+    ) -> Result<(), InvoiceError>;
 }
